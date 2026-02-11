@@ -158,7 +158,14 @@ async def plugin_status(token: str):
 async def plugin_poll(token: str):
     """Plugin polls for Lua commands to execute."""
     if token not in sessions:
-        return JSONResponse({"command": "none", "error": "Invalid token"})
+        # Auto-create session if it doesn't exist (e.g. after server restart)
+        sessions[token] = {
+            "commands": [],
+            "responses": {},
+            "last_seen": time.time(),
+            "plugin_connected": True,
+        }
+        return JSONResponse({"command": "none", "status": "session_created"})
 
     sessions[token]["last_seen"] = time.time()
     sessions[token]["plugin_connected"] = True
