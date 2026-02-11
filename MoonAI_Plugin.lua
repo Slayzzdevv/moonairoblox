@@ -19,7 +19,7 @@
 -- CONFIGURATION
 -- ═══════════════════════════════════════
 local TOKEN = "YOUR_TOKEN" -- ← Replace with your Moon AI token
-local SERVER_URL = "https://moonai.onrender.com"
+local SERVER_URL = "https://moonairoblox.onrender.com"
 
 -- ═══════════════════════════════════════
 -- DO NOT MODIFY BELOW THIS LINE

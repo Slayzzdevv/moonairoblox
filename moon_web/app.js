@@ -13,10 +13,10 @@ const PLUGIN_CODE = `--[[
     Connecte ton Studio au cloud Moon AI
 ]]
 local TOKEN = "TOKEN_PLACEHOLDER"
-local SERVER = "SERVER_PLACEHOLDER"
+local SERVER_URL = "SERVER_PLACEHOLDER"
 local HttpService = game:GetService("HttpService")
-local POLL_URL = SERVER .. "/plugin/poll/" .. TOKEN
-local RESP_URL = SERVER .. "/plugin/response/" .. TOKEN
+local POLL_URL = SERVER_URL .. "/plugin/poll/" .. TOKEN
+local RESP_URL = SERVER_URL .. "/plugin/response/" .. TOKEN
 
 local toolbar = plugin:CreateToolbar("Moon AI")
 local btn = toolbar:CreateButton("Moon AI", "Toggle Moon AI", "rbxassetid://4458901886")

@@ -136,6 +136,16 @@ async def get_status():
         "sessions": len(sessions),
     }
 
+@app.get("/api/plugin-status/{token}")
+async def plugin_status(token: str):
+    """Check if a specific plugin is connected."""
+    if token not in sessions:
+        return JSONResponse({"connected": False, "error": "Unknown token"})
+    s = sessions[token]
+    # Consider plugin connected if last seen within 10 seconds
+    connected = s["plugin_connected"] and (time.time() - s["last_seen"]) < 10
+    return {"connected": connected}
+
 
 # ═══════════════════════════════════════
 # PLUGIN ENDPOINTS (Roblox HttpService)
