@@ -24,7 +24,7 @@ load_dotenv()
 AI_API_KEY = os.environ.get("AI_API_KEY", "")
 # Gemini API defaults
 # Gemini API Config (Forces Google URL to avoid Anthropic env var conflicts)
-AI_MODEL = os.environ.get("AI_MODEL", "gemini-1.5-flash")
+AI_MODEL = os.environ.get("AI_MODEL", "gemini-1.5-pro")
 # FORCE Google URL (ignore env var to prevent "stuck" Anthropic URL)
 AI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{AI_MODEL}:generateContent?key={AI_API_KEY}"
 
