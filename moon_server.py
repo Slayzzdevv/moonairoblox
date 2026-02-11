@@ -23,7 +23,7 @@ load_dotenv()
 # ═══════════════════════════════════════
 AI_API_KEY = os.environ.get("AI_API_KEY", "")
 AI_API_URL = os.environ.get("AI_API_URL", "https://api.anthropic.com/v1/messages")
-AI_MODEL = os.environ.get("AI_MODEL", "claude-3-5-sonnet-20240620")
+AI_MODEL = os.environ.get("AI_MODEL", "claude-opus-4-6")
 
 SYSTEM_PROMPT = """Tu es Moon AI, un assistant expert en Roblox Studio.
 Quand un utilisateur demande quelque chose, tu génères UNIQUEMENT du code Lua exécutable dans Roblox Studio.
@@ -59,6 +59,7 @@ app = FastAPI(title="Moon AI", lifespan=lifespan)
 # ═══════════════════════════════════════
 # AI API CALL
 # ═══════════════════════════════════════
+async def call_ai(user_message: str) -> dict:
     """Call the AI API (supports both Anthropic and OpenAI-compatible proxies)."""
     
     # Authentification intelligente
