@@ -59,21 +59,38 @@ app = FastAPI(title="Moon AI", lifespan=lifespan)
 # ═══════════════════════════════════════
 # AI API CALL
 # ═══════════════════════════════════════
-async def call_ai(user_message: str) -> dict:
-    """Call the Anthropic API to generate Lua code from a user message."""
+    """Call the AI API (supports both Anthropic and OpenAI-compatible proxies)."""
+    
+    # Authentification intelligente
+    # Si c'est directement Anthropic (clé sk-ant-...) -> x-api-key
+    # Si c'est un proxy (OpenRouter, etc.) ou une clé OpenAI -> Bearer
+    
+    is_native_anthropic = "anthropic.com" in AI_API_URL and AI_API_KEY.startswith("sk-ant-")
+    
     headers = {
-        "x-api-key": AI_API_KEY,
-        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json"
     }
+    
+    if is_native_anthropic:
+        headers["x-api-key"] = AI_API_KEY
+        headers["anthropic-version"] = "2023-06-01"
+    else:
+        headers["Authorization"] = f"Bearer {AI_API_KEY}"
+
     payload = {
         "model": AI_MODEL,
         "max_tokens": 2048,
-        "system": SYSTEM_PROMPT,
         "messages": [
             {"role": "user", "content": user_message}
         ]
     }
+    
+    # Adapt payload for direct Anthropic (requires 'system' field outside messages)
+    if is_native_anthropic:
+        payload["system"] = SYSTEM_PROMPT
+    else:
+        # OpenAI style uses a system message in the list
+        payload["messages"].insert(0, {"role": "system", "content": SYSTEM_PROMPT})
 
     try:
         async with aiohttp.ClientSession() as session:
