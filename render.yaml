@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: moonai
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn moon_server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PORT
+        generateValue: false
+    autoDeploy: true
