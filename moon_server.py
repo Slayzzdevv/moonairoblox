@@ -22,8 +22,8 @@ load_dotenv()
 # CONFIG
 # ═══════════════════════════════════════
 AI_API_KEY = os.environ.get("AI_API_KEY", "")
-AI_API_URL = os.environ.get("AI_API_URL", "https://api.openai.com/v1/chat/completions")
-AI_MODEL = os.environ.get("AI_MODEL", "claude-opus-4-20250514")
+AI_API_URL = os.environ.get("AI_API_URL", "https://api.anthropic.com/v1/messages")
+AI_MODEL = os.environ.get("AI_MODEL", "claude-3-5-sonnet-20240620")
 
 SYSTEM_PROMPT = """Tu es Moon AI, un assistant expert en Roblox Studio.
 Quand un utilisateur demande quelque chose, tu génères UNIQUEMENT du code Lua exécutable dans Roblox Studio.
@@ -60,49 +60,52 @@ app = FastAPI(title="Moon AI", lifespan=lifespan)
 # AI API CALL
 # ═══════════════════════════════════════
 async def call_ai(user_message: str) -> dict:
-    """Call the AI API to generate Lua code from a user message."""
+    """Call the Anthropic API to generate Lua code from a user message."""
     headers = {
-        "Authorization": f"Bearer {AI_API_KEY}",
+        "x-api-key": AI_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json"
     }
     payload = {
         "model": AI_MODEL,
         "max_tokens": 2048,
+        "system": SYSTEM_PROMPT,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_message}
         ]
     }
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(AI_API_URL, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+            async with session.post(AI_API_URL, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=40)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    content = data["choices"][0]["message"]["content"]
-                    # Parse JSON from AI response
-                    # Try to extract JSON even if wrapped in markdown
-                    content = content.strip()
-                    if content.startswith("```"):
-                        # Remove markdown code fences
-                        lines = content.split("\n")
-                        content = "\n".join(lines[1:-1])
-                    parsed = json.loads(content)
-                    return {
-                        "success": True,
-                        "lua": parsed.get("lua", ""),
-                        "description": parsed.get("description", "Commande exécutée")
-                    }
+                    content = data["content"][0]["text"].strip()
+                    
+                    # Extraction du JSON
+                    json_str = content
+                    if json_str.startswith("```"):
+                        lines = json_str.split("\n")
+                        if lines[0].startswith("```"): lines = lines[1:]
+                        if lines[-1].startswith("```"): lines = lines[:-1]
+                        json_str = "\n".join(lines).strip()
+                    
+                    try:
+                        parsed = json.loads(json_str)
+                        return {
+                            "success": True,
+                            "lua": parsed.get("lua", ""),
+                            "description": parsed.get("description", "Commande exécutée")
+                        }
+                    except:
+                        return {
+                            "success": True,
+                            "lua": content,
+                            "description": "Code généré"
+                        }
                 else:
                     error_text = await resp.text()
-                    return {"success": False, "error": f"API Error {resp.status}: {error_text[:200]}"}
-    except json.JSONDecodeError:
-        # AI didn't return valid JSON, try to extract Lua anyway
-        return {
-            "success": True,
-            "lua": content if content else "",
-            "description": "Code généré"
-        }
+                    return {"success": False, "error": f"Claude API Error {resp.status}: {error_text[:200]}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

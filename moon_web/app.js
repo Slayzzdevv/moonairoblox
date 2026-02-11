@@ -12,49 +12,87 @@ const PLUGIN_CODE = `--[[
     Moon AI - Roblox Studio Plugin
     Connecte ton Studio au cloud Moon AI
 ]]
+
 local TOKEN = "TOKEN_PLACEHOLDER"
 local SERVER_URL = "SERVER_PLACEHOLDER"
+
 local HttpService = game:GetService("HttpService")
 local POLL_URL = SERVER_URL .. "/plugin/poll/" .. TOKEN
-local RESP_URL = SERVER_URL .. "/plugin/response/" .. TOKEN
+local RESPONSE_URL = SERVER_URL .. "/plugin/response/" .. TOKEN
+local POLL_INTERVAL = 1.5
+
+-- ═══════════════════════════════════════
+-- UI: Toolbar + Widget
+-- ═══════════════════════════════════════
 
 local toolbar = plugin:CreateToolbar("Moon AI")
-local btn = toolbar:CreateButton("Moon AI", "Toggle Moon AI", "rbxassetid://4458901886")
-local active = true
-btn.Click:Connect(function() active = not active end)
+local toggleBtn = toolbar:CreateButton("Moon AI", "Ouvrir Moon AI", "rbxassetid://4458901886")
 
-local function exec(data)
-    local code = data.data and data.data.code
-    if not code then return false, "No code" end
-    local fn, err = loadstring("return (function() " .. code .. " end)()")
+local widgetInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, false, 300, 160, 250, 120)
+local widget = plugin:CreateDockWidgetPluginGui("MoonAIWidget", widgetInfo)
+widget.Title = "Moon AI 🌙"
+
+toggleBtn.Click:Connect(function() widget.Enabled = not widget.Enabled end)
+
+local main = Instance.new("Frame")
+main.Size = UDim2.new(1, 0, 1, 0)
+main.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
+main.BorderSizePixel = 0
+main.Parent = widget
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -20, 0, 30)
+statusLabel.Position = UDim2.new(0, 10, 0, 10)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextColor3 = Color3.fromRGB(74, 222, 128)
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextSize = 14
+statusLabel.Text = "🌙 Status: Connecté"
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = main
+
+local cmdLabel = Instance.new("TextLabel")
+cmdLabel.Size = UDim2.new(1, -20, 0, 60)
+cmdLabel.Position = UDim2.new(0, 10, 0, 45)
+cmdLabel.BackgroundTransparency = 1
+cmdLabel.TextColor3 = Color3.fromRGB(200, 200, 220)
+cmdLabel.Font = Enum.Font.Gotham
+cmdLabel.TextSize = 12
+cmdLabel.Text = "En attente de commandes..."
+cmdLabel.TextWrapped = true
+cmdLabel.TextXAlignment = Enum.TextXAlignment.Left
+cmdLabel.TextYAlignment = Enum.TextYAlignment.Top
+cmdLabel.Parent = main
+
+local function exec(commandData)
+    local code = commandData.data and commandData.data.code
+    if not code then return false, "Pas de code" end
+    local wrapped = "return (function() " .. code .. " end)()"
+    local fn, err = loadstring(wrapped)
+    if not fn then fn, err = loadstring(code) end
     if fn then
         local ok, ret = pcall(fn)
-        if ok then return true, tostring(ret or "Done")
-        else return false, tostring(ret) end
-    else
-        local fn2, err2 = loadstring(code)
-        if fn2 then
-            local ok2, ret2 = pcall(fn2)
-            return ok2, ok2 and tostring(ret2 or "Done") or tostring(ret2)
-        end
-        return false, tostring(err)
+        return ok, tostring(ret or "Fait")
     end
+    return false, tostring(err)
 end
 
 while true do
-    if active then
-        pcall(function()
-            local r = HttpService:GetAsync(POLL_URL)
-            local d = HttpService:JSONDecode(r)
-            if d.command and d.command ~= "none" then
-                local ok, res = exec(d)
-                HttpService:PostAsync(RESP_URL,
-                    HttpService:JSONEncode({command_id=d.command_id, result={success=ok, result=res}}),
-                    Enum.HttpContentType.ApplicationJson)
-            end
-        end)
-    end
-    wait(1.5)
+    pcall(function()
+        local response = HttpService:GetAsync(POLL_URL)
+        local data = HttpService:JSONDecode(response)
+        if data.command and data.command ~= "none" then
+            statusLabel.Text = "🌙 Exécution..."
+            cmdLabel.Text = data.command
+            local ok, res = exec(data)
+            HttpService:PostAsync(RESPONSE_URL, 
+                HttpService:JSONEncode({command_id=data.command_id, result={success=ok, result=res}}),
+                Enum.HttpContentType.ApplicationJson)
+            statusLabel.Text = ok and "🌙 Succès !" or "🌙 Erreur"
+            cmdLabel.Text = tostring(res):sub(1, 100)
+        end
+    end)
+    wait(POLL_INTERVAL)
 end`;
 
 // ─── DOM ───
