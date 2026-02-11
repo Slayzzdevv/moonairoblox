@@ -9,8 +9,6 @@ services:
         value: 3000
       - key: AI_API_KEY
         sync: false
-      - key: AI_API_URL
-        value: https://api.anthropic.com/v1/messages
       - key: AI_MODEL
-        value: claude-3-5-sonnet-20240620
+        value: gemini-1.5-flash
     autoDeploy: true

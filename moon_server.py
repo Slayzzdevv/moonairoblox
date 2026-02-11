@@ -22,8 +22,14 @@ load_dotenv()
 # CONFIG
 # ═══════════════════════════════════════
 AI_API_KEY = os.environ.get("AI_API_KEY", "")
-AI_API_URL = os.environ.get("AI_API_URL", "https://api.anthropic.com/v1/messages")
-AI_MODEL = os.environ.get("AI_MODEL", "claude-opus-4-6")
+# Gemini API defaults
+# Gemini API Config (Forces Google URL to avoid Anthropic env var conflicts)
+AI_MODEL = os.environ.get("AI_MODEL", "gemini-1.5-flash")
+# FORCE Google URL (ignore env var to prevent "stuck" Anthropic URL)
+AI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{AI_MODEL}:generateContent?key={AI_API_KEY}"
+
+print(f"🚀 Moon AI Starting in GEMINI MODE with model: {AI_MODEL}")
+print(f"🔗 Target URL: {AI_API_URL.split('?')[0]}...")
 
 SYSTEM_PROMPT = """Tu es Moon AI, un assistant expert en Roblox Studio.
 Quand un utilisateur demande quelque chose, tu génères UNIQUEMENT du code Lua exécutable dans Roblox Studio.
@@ -57,49 +63,40 @@ app = FastAPI(title="Moon AI", lifespan=lifespan)
 
 
 # ═══════════════════════════════════════
-# AI API CALL
+# AI API CALL (Google Gemini)
 # ═══════════════════════════════════════
 async def call_ai(user_message: str) -> dict:
-    """Call the AI API (supports both Anthropic and OpenAI-compatible proxies)."""
+    """Call the Google Gemini API to generate Lua code from a user message."""
     
-    # Authentification intelligente
-    # Si c'est directement Anthropic (clé sk-ant-...) -> x-api-key
-    # Si c'est un proxy (OpenRouter, etc.) ou une clé OpenAI -> Bearer
-    
-    is_native_anthropic = "anthropic.com" in AI_API_URL and AI_API_KEY.startswith("sk-ant-")
+    # Rebuild URL if model changed in env
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{AI_MODEL}:generateContent?key={AI_API_KEY}"
     
     headers = {
         "Content-Type": "application/json"
     }
-    
-    if is_native_anthropic:
-        headers["x-api-key"] = AI_API_KEY
-        headers["anthropic-version"] = "2023-06-01"
-    else:
-        headers["Authorization"] = f"Bearer {AI_API_KEY}"
 
+    # Gemini API Structure
     payload = {
-        "model": AI_MODEL,
-        "max_tokens": 2048,
-        "messages": [
-            {"role": "user", "content": user_message}
-        ]
+        "contents": [{
+            "parts": [{"text": f"System: {SYSTEM_PROMPT}\n\nUser: {user_message}"}]
+        }],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 2048,
+        }
     }
-    
-    # Adapt payload for direct Anthropic (requires 'system' field outside messages)
-    if is_native_anthropic:
-        payload["system"] = SYSTEM_PROMPT
-    else:
-        # OpenAI style uses a system message in the list
-        payload["messages"].insert(0, {"role": "system", "content": SYSTEM_PROMPT})
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(AI_API_URL, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=40)) as resp:
+            async with session.post(url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=40)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    content = data["content"][0]["text"].strip()
-                    
+                    # Gemini response parsing
+                    try:
+                        content = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                    except (KeyError, IndexError):
+                        return {"success": False, "error": "Invalid response from Gemini"}
+
                     # Extraction du JSON
                     json_str = content
                     if json_str.startswith("```"):
@@ -123,7 +120,7 @@ async def call_ai(user_message: str) -> dict:
                         }
                 else:
                     error_text = await resp.text()
-                    return {"success": False, "error": f"Claude API Error {resp.status}: {error_text[:200]}"}
+                    return {"success": False, "error": f"Gemini API Error {resp.status}: {error_text[:200]}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
