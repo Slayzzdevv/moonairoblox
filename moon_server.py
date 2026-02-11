@@ -185,9 +185,43 @@ async def browser_ws(websocket: WebSocket):
 # PLUGIN ENDPOINTS
 # ═══════════════════════════════════════
 
+@app.get("/plugin/poll/{token}")
+async def poll_commands_legacy(token: str):
+    """Legacy polling for Roblox plugin (GET)."""
+    try:
+        sessions[token] = sessions.get(token, {"commands": [], "ws": None, "plugin_connected": True, "last_seen": time.time()})
+        sessions[token]["last_seen"] = time.time()
+        sessions[token]["plugin_connected"] = True
+        
+        cmds = sessions[token]["commands"]
+        if not cmds:
+             return {"command": "none"}
+             
+        # Pop one command (FIFO)
+        cmd = cmds.pop(0)
+        sessions[token]["commands"] = cmds # Update list
+        
+        return cmd # Return the command dict directly
+        
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)})
+
+@app.post("/plugin/response/{token}")
+async def plugin_response(token: str, request: Request):
+    """Handle response from plugin execution."""
+    try:
+        data = await request.json()
+        # Log or broadcast result if needed
+        # For Agent mode, we might want to notify user
+        # But currently the loop is: Agent -> Reply -> Queue -> Plugin -> Response
+        # We can just log it for now.
+        return {"success": True}
+    except Exception:
+        return {"success": False}
+
 @app.post("/poll")
 async def poll_commands(request: Request):
-    """Roblox plugin polls for commands."""
+    """Roblox plugin polls for commands (POST version)."""
     try:
         data = await request.json()
         token = data.get("token")
@@ -205,16 +239,6 @@ async def poll_commands(request: Request):
         return {"commands": cmds}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)})
-
-@app.post("/mcp")
-async def mcp_command(request: Request):
-    """Endpoint for MCP tools to send commands to Roblox."""
-    # MCP uses a simpler flow: send command, wait for result (via another polling mech or just queueing)
-    # Actually, MCP tools typically want immediate execution. 
-    # But since Plugin Polls, we must queue and wait?
-    # For now, let's just queue and return 'Queued'. 
-    # Real implementations use Long Polling or WebSockets.
-    pass
 
 # ═══════════════════════════════════════
 # HELPERS
