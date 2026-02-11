@@ -218,13 +218,50 @@ function handleMessage(data) {
                   addMessage(data.message, 'user');
                   addTyping();
                   break;
-            case 'task':
+            case 'stream_start':
                   removeTyping();
-                  addMessage(data.status, 'task-msg');
+                  // Create a new message container for the streaming response
+                  const div = document.createElement('div');
+                  div.className = 'message ai-msg stream-active';
+                  div.id = 'current-stream';
+                  messagesDiv.appendChild(div);
+                  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                  break;
+            case 'stream_chunk':
+                  const streamDiv = document.getElementById('current-stream');
+                  if (streamDiv) {
+                        // Simple Markdown-like formatting for Thinking
+                        let text = data.chunk;
+                        // Colorize "Thinking:" prefix if present
+                        if (streamDiv.textContent.length < 20 && text.includes("Thinking:")) {
+                              text = text.replace("Thinking:", "<strong>Thinking:</strong>");
+                              streamDiv.innerHTML += text;
+                        } else {
+                              streamDiv.textContent += text;
+                        }
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                  }
+                  break;
+            case 'stream_end':
+                  const finalDiv = document.getElementById('current-stream');
+                  if (finalDiv) {
+                        finalDiv.classList.remove('stream-active');
+                        finalDiv.removeAttribute('id');
+                        // Optional: Parse Markdown/Highlighting here if needed
+                  }
+                  break;
+            case 'task':
+                  // Legacy task handling or additional info
+                  if (document.getElementById('current-stream')) break; // Don't interrupt stream
+                  removeTyping();
+                  // addMessage(data.status, 'task-msg'); // Too verbose with streaming
                   addTask(data.description || data.status);
-                  addTyping();
+                  // addTyping(); // No typing needed if streaming follows
                   break;
             case 'result':
+                  if (document.getElementById('current-stream')) {
+                        document.getElementById('current-stream').removeAttribute('id');
+                  }
                   removeTyping();
                   addMessage(data.message || '✅ Terminé !', data.success !== false ? 'success-msg' : 'error-msg');
                   completeLastTask();
